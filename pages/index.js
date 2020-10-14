@@ -1,65 +1,170 @@
-import Head from 'next/head'
-import styles from '../styles/Home.module.css'
+import React, { useRef, useEffect, useState } from "react";
+import { Group } from "@visx/group";
+import { hierarchy, Tree } from "@visx/hierarchy";
+import { LinkHorizontal } from "@visx/shape";
+import { Zoom } from "@visx/zoom";
+import { localPoint } from "@visx/event";
+import { scaleLinear } from "@visx/scale";
+
+const MOCK_DATA = {
+  label: "Artist",
+  fields: { id: "int[4]", name: "nvarchar[240]" },
+  children: [
+    {
+      label: "Album",
+      fields: { id: "uuid", artist_id: "int[4]", time: "int[4]" },
+      children: [
+        {
+          label: "Track",
+          fields: { id: "int[4]", title: "text" },
+        },
+      ],
+    },
+    {
+      label: "Mocked",
+      fields: { id: "uuid", artist_id: "int[4]", time: "int[4]" },
+    },
+  ],
+};
+
+const initialTransform = {
+  scaleX: 1,
+  scaleY: 1,
+  translateX: 120,
+  translateY: 30,
+  skewX: 0,
+  skewY: 0,
+};
+
+const MockNode = ({ node: { x, y, data } }) => {
+  const targetRef = useRef();
+  const [dimensions, setDimensions] = useState({ width: 80, height: 80 });
+  const list = Object.entries(data.fields);
+
+  useEffect(() => {
+    if (targetRef.current) {
+      setDimensions({
+        width: targetRef.current.offsetWidth,
+        height: targetRef.current.offsetHeight,
+      });
+    }
+  }, []);
+
+  return (
+    <foreignObject
+      x={y - dimensions.width / 2}
+      y={x - dimensions.height / 2}
+      height={dimensions.height}
+      width={dimensions.width}
+    >
+      <table
+        ref={targetRef}
+        style={{
+          color: "white",
+          backgroundColor: "rgba(0,0,0,0.6)",
+          padding: 10,
+          borderRadius: 4,
+        }}
+      >
+        <thead>
+          <tr>
+            <th colspan="2" style={{ textAlign: "start" }}>
+              {data.label}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((item) => (
+            <tr>
+              <td>{item[0]}</td>
+              <td style={{ fontFamily: "monospace", paddingLeft: 10 }}>
+                {item[1]}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </foreignObject>
+  );
+};
+
+const MockLink = ({ link }) => {
+  return (
+    <LinkHorizontal
+      key={link.source.x + link.source.y + link.target.x + link.target.y}
+      data={link}
+      stroke="rgb(254,110,158,0.6)"
+      strokeWidth="1"
+      fill="none"
+    />
+  );
+};
+const width = 180;
+const margin = {
+  top: 30,
+  left: width / 2 + 20,
+  right: width / 2 + 20,
+  bottom: 30,
+};
+const totalWidth = 700;
+const totalHeight = 400;
+const innerWidth = totalWidth - margin.left - margin.right;
+const innerHeight = totalHeight - margin.top - margin.bottom;
 
 export default function Home() {
   return (
-    <div className={styles.container}>
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
+    <Zoom
+      width={totalWidth}
+      height={totalHeight}
+      scaleXMin={1 / 2}
+      scaleXMax={4}
+      scaleYMin={1 / 2}
+      scaleYMax={4}
+      transformMatrix={initialTransform}
+    >
+      {(zoom) => (
+        <div>
+          <svg
+            width={totalWidth}
+            height={totalHeight}
+            style={{ cursor: zoom.isDragging ? "grabbing" : "grab" }}
           >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+            <rect
+              width={totalWidth}
+              height={totalHeight}
+              rx={14}
+              fill="#272b4d"
+            />
+            <Group
+              top={margin.top}
+              left={margin.left}
+              transform={zoom.toString()}
+            >
+              <Tree
+                root={hierarchy(MOCK_DATA, (d) => d.children)}
+                size={[innerHeight, innerWidth]}
+                nodeComponent={MockNode}
+                linkComponent={MockLink}
+              />
+            </Group>
+            <rect
+              width={totalWidth}
+              height={totalHeight}
+              rx={14}
+              fill="transparent"
+              onTouchStart={zoom.dragStart}
+              onTouchMove={zoom.dragMove}
+              onTouchEnd={zoom.dragEnd}
+              onMouseDown={zoom.dragStart}
+              onMouseMove={zoom.dragMove}
+              onMouseUp={zoom.dragEnd}
+              onMouseLeave={() => {
+                if (zoom.isDragging) zoom.dragEnd();
+              }}
+            />
+          </svg>
         </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
-    </div>
-  )
+      )}
+    </Zoom>
+  );
 }
